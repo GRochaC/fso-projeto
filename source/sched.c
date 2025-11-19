@@ -2,6 +2,8 @@
 #include "string.h"
 #include "stdlib.h"
 #include "stdbool.h"
+#include "unistd.h"
+#include "sys/wait.h"
 
 #include "process.h"
 #include "queue.h"
@@ -19,118 +21,155 @@
 // Biblioteca de sinais
 #include "signal.h"
 
-/*TODO - corrigir essa parte
-
 bool voltar_para_o_inicio = false;  
-
-*/
 
 int n;                              // numero de filas round-robins
 
-Queue** round_robins;
-Queue* finished_processes;
+Queue** round_robins = NULL;
+Queue* finished_processes = NULL;
 
 // declaracao da struct mensagem
-mensagem mensagem_shed;
+mensagem mensagem_sched;
+
+Process* processo_atual;
+Process* processo_default;
 
 int msg_id;     // id da fila de mensagens
 
 // exit_scheduler
 void exit_sched() {
-    /*TODO - enviar como mensagem para main os processos terminados e filas*/
+    if (!is_empty(finished_processes)) {
+        printf("\nProcessos finalizados:\n");
+        Node *atual = finished_processes->front;
+
+        while (atual != NULL) {
+            Process *proc = atual->proc;
+            printf("\tProcesso: %d, prioridade: %d, turnaround: %lds\n", proc->pid, proc->priority, proc->turnaround);
+            atual = atual->nxt;
+        }
+    }
+
+    // Processo atual:
+    if(processo_atual->pid != 2147483647) printf("Processo atual: %d, prioridade: %d\n", processo_atual->pid, processo_atual->priority);
     
-    /*TODO - lembrar de dar kill nos processos nas filas*/
+    printf("Processos não finalizados:\n");
+    for (int pr = 0; pr < n; ++pr) {
+        if (!is_empty(round_robins[pr])) {
+            printf("\tFila de prioridade %d\n", pr+1);
+            Node *atual = round_robins[pr]->front;
+
+            while (atual != NULL) {
+                Process *proc = atual->proc;
+                printf("\t\tProcesso: %d\n", proc->pid);
+                atual = atual->nxt;
+            }
+        }
+    }
 
     // frees necessarios
     for(int i = 0; i < n; i++) free_queue(round_robins[i]);
     free_queue(finished_processes);
 
     free(round_robins);
+
+    free(processo_atual);
+
+    exit(EXIT_SUCCESS);
 }
 
 // list_scheduler
 void info_sched() {
-    /*TODO - enviar como mensagem as filas e o processo sendo executado no momento*/
-    strcpy(mensagem_shed.msg, "");  // limpa o buffer de mensagem
+    // Processo atual:
+    if(processo_atual->pid != 2147483647) printf("\nProcesso atual: %d, prioridade: %d\n", processo_atual->pid, processo_atual->priority);
 
+    // Processos nas filas:
+    for (int pr = 0; pr < n; ++pr) {
+        if (!is_empty(round_robins[pr])) {
+            printf("Fila de prioridade %d\n", pr+1);
+            Node *atual = round_robins[pr]->front;
+
+            while (atual != NULL) {
+                Process *proc = atual->proc;
+                printf("\tProcesso: %d\n", proc->pid);
+                atual = atual->nxt;
+            }
+        }
+    }
 }
 
 // execute_process
 void add_proc() {
-    /*TODO - criar processo e adicionar na fila*/
-    strcpy(mensagem_shed.msg, "");  // limpa o buffer de mensagem
-    msgrcv(msg_id, &mensagem_shed, sizeof(mensagem_shed), 0, 0);    // recebe a prioridade da main
-
+    strcpy(mensagem_sched.msg, "");  // limpa o buffer de mensagem
+    msgrcv(msg_id, &mensagem_sched, sizeof(mensagem_sched.msg), 0, 0);    // recebe a prioridade da main
+    
     int pid_new_process = fork();
     if(pid_new_process == 0) {
-        Process* proc = (Process*) malloc(sizeof(Process));
-        proc->pid = pid_new_process;
-        proc->priority = atoi(mensagem_shed.msg);
-        enqueue(round_robins[proc->priority-1], proc);
+        kill(getpid(), SIGSTOP);     // espera receber SIGCONT
 
-        execl("proc_exec","proc_exec");
+        execl("source/proc_exec", "proc_exec", (char *) 0);
 
         fprintf(stderr, "Erro: falha ao executar o comando 'execl'.\n");
+    } else {
+        Process* proc = new_process(pid_new_process, atoi(mensagem_sched.msg));
+        push(round_robins[proc->priority-1], proc);
+        voltar_para_o_inicio = true;
     }
-
-    /*TODO - pensar como parar o filho*/
 }
 
 int main(int argc, char* argv[]) {
-    mensagem_shed.pid = getpid();
+    mensagem_sched.pid = getpid();
 
-    n = atoi(argv[1]);                          // numero de filas round-robins
+    n = atoi(argv[1]);                          // número de filas round-robins
     msg_id = atoi(argv[2]);                     // id da fila de mensagem
 
-    round_robins = (Queue**) malloc(sizeof(Queue*) * n); // cria as arrays de filas rr
+    round_robins = (Queue**) malloc(sizeof(Queue*) * n); // cria os arrays de filas rr
+    processo_default = new_process(2147483647,-1);
+    processo_atual = processo_default;
 
-    signal(SIGKILL, exit_sched);                // rotina de saida
-    signal(SIGUSR1, info_sched);                 // rotina de listar os processos
+    signal(SIGINT, exit_sched);                // rotina de saida
+    signal(SIGUSR1, info_sched);                // rotina de listar os processos
     signal(SIGUSR2, add_proc);                  // rotina de adicionar novo processo
 
     for (int i = 0; i < n; i++) round_robins[i] = new_queue();
     finished_processes = new_queue();
 
-    /*Teste da troca de mensagens
-
-    printf("Scheduler: vou ler uma mensagem...\n");
-    msgrcv(msg_id, &mensagem_shed, sizeof(mensagem_shed), 0, 0);
-    printf("Mensagem recebida de 'main.c': %s\n", mensagem_shed.msg);
-    exit(0);
-    
-    */
-
-    while(true) {}
-   
-    /*TODO - corrigir essa parte
-    while (true) {
-        for (int i = 0; i < n; ++i) {
-            // Sinal para matar scheduler
-            
-            if (voltar_para_o_inicio) {
+    while(true) {
+        for(int pr = 0; pr < n; pr++) {
+            if(voltar_para_o_inicio) {
+                pr = -1;    // reseta o for
                 voltar_para_o_inicio = false;
-                i = -1;
                 continue;
             }
 
-            if (is_empty(round_robins[i])) continue;
+            // executamos todos os processos de prioridade == pr
+            if(!is_empty(round_robins[pr])) {
+                processo_atual = pop(round_robins[pr]); 
+                // printf("Processando %d\n", processo_atual->pid);
 
-            // Processa o cara no início
-            Process *p = dequeue(round_robins[i]);
+                kill(processo_atual->pid, SIGCONT); // Acorda o processo_atual 
 
-            sleep(4); // quantum de 4s
+                // quantum 4s, signal proof
+                int falta_dormir = 4;
+                do {
+                    falta_dormir = sleep(falta_dormir);
+                } while(falta_dormir);
 
-            
-            p->time_remaining -= 5;
-            if (p->time_remaining == 0) {
-                enqueue(finished_processes, p);
-            } else {
-                enqueue(round_robins[i], p);
+                int s;
+                int status = waitpid(processo_atual->pid, &s, WNOHANG);
+
+                if(status == processo_atual->pid) {
+                    // printf("Processo %d finalizado\n", processo_atual->pid);
+                    processo_atual->turnaround = time(NULL) - processo_atual->time_init;
+                    push(finished_processes, processo_atual);   // processo terminou
+
+                    processo_atual = processo_default;
+                } else {
+                    kill(processo_atual->pid, SIGSTOP); // para o processo
+                    push(round_robins[pr], processo_atual); // coloca no final da fila
+                }
+
+                if(!is_empty(round_robins[pr])) pr--;   // permanece na prioridade pr na próxima iteração
             }
-
-            if (!is_empty(round_robins[i])) i -= 1;      
-            
         }
     }
-    */
 }

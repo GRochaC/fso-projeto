@@ -4,6 +4,8 @@
 #include "stdlib.h"
 #include "process.h"
 
+#include "signal.h"
+
 typedef struct Node {
     Process *proc;
     struct Node *nxt;
@@ -26,7 +28,7 @@ Queue* new_queue() {
     return q;
 }
 
-int enqueue(Queue *q, Process* process) {
+int push(Queue *q, Process* process) {
     if (q == NULL) return 1;
 
     Node* no = (Node*) malloc(sizeof(Node));
@@ -45,7 +47,8 @@ int enqueue(Queue *q, Process* process) {
     return 0;
 }
 
-Process* dequeue(Queue *q) {
+// Retira o primeiro elemento da fila q
+Process* pop(Queue *q) {
     if (q->size == 0) return NULL;
 
     Node* no = q->front;
@@ -59,10 +62,13 @@ Process* dequeue(Queue *q) {
 }
 
 void free_queue(Queue *q) {
+    if(q == NULL) return;
+
     Node *node = q->front;
     while (node != NULL) {
         Node* nxt = node->nxt;
-        Process* p = dequeue(q);
+        Process* p = pop(q);
+        kill(p->pid, SIGKILL);
         free(p);
         node = nxt;
     }
@@ -73,36 +79,6 @@ void free_queue(Queue *q) {
 
 bool is_empty(Queue* q) {
     return (q->size == 0);
-}
-
-// Criado com o chatgpt. Verificado e ok
-char* to_string(Queue* q) {
-    if(q == NULL) {
-        char* s = (char*) malloc(20);
-        snprintf(s, 20, "[Fila NULL]");
-        return s;
-    }
-
-    size_t tam = q->size*12 + 50;   // tamanho da fila formatada para string
-    char* ret = (char*) malloc(tam); 
-    if(ret == NULL) return NULL;
-
-    size_t offset = 0;
-
-    offset += snprintf(ret+offset, tam - offset, "[");  // snprintf retorna o quanto foi escrito na string formatada (nesse caso offset = 1)
-
-    Node* cur = q->front;
-    while(cur != NULL) {
-        offset += snprintf(ret + offset, tam - offset, "pid=%d", cur->proc->pid);
-
-        if(cur->nxt != NULL) offset += snprintf(ret + offset, tam - offset, ", ");  // offset += 2
-
-        cur = cur->nxt;
-    }
-
-    snprintf(ret+offset, tam - offset, "]");    // offset += 1
-
-    return ret;  // LEMBRAR DE DAR FREE()
 }
 
 #endif

@@ -4,7 +4,7 @@
 // struct responsavel por armazenar as mensagens enviadas e recebidas pelos processos
 typedef struct mensagem {
   long pid;
-  char msg[500];
+  char msg[100];
 } mensagem;
 
 #endif
