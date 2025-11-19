@@ -1,6 +1,6 @@
 #include "stdlib.h"
 
-// Processo que ficara ocupando a CPU
+// Processo que ficará ocupando a CPU
 
 int main() {
     unsigned long sum = 0;
