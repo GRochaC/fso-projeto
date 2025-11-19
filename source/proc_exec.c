@@ -4,7 +4,7 @@
 
 int main() {
     unsigned long sum = 0;
-    for (unsigned long i = 0; i < 40 * 1e8; ++i) {
+    for (unsigned long i = 0; i < 4 * 1e9; ++i) {
         sum += i;
     }
     exit(0);

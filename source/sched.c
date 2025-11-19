@@ -40,7 +40,7 @@ int msg_id;     // id da fila de mensagens
 void exit_sched() {
     if (!is_empty(finished_processes)) {
         printf("\nProcessos finalizados:\n");
-        Node *atual = finished_processes->front;
+        Node *atual = finished_processes->head;
 
         while (atual != NULL) {
             Process *proc = atual->proc;
@@ -51,20 +51,27 @@ void exit_sched() {
 
     // Processo atual:
     if(processo_atual->pid != 2147483647) printf("Processo atual: %d, prioridade: %d\n", processo_atual->pid, processo_atual->priority);
-    
-    printf("Processos não finalizados:\n");
-    for (int pr = 0; pr < n; ++pr) {
-        if (!is_empty(round_robins[pr])) {
-            printf("\tFila de prioridade %d\n", pr+1);
-            Node *atual = round_robins[pr]->front;
 
-            while (atual != NULL) {
-                Process *proc = atual->proc;
-                printf("\t\tProcesso: %d\n", proc->pid);
-                atual = atual->nxt;
+    bool all_vazio = true;
+    for(int i = 0; i < n; i++) all_vazio &= is_empty(round_robins[i]);
+
+    if(!all_vazio) {
+        printf("Processos não finalizados:\n");
+        for (int pr = 0; pr < n; ++pr) {
+            if (!is_empty(round_robins[pr])) {
+                printf("\tFila de prioridade %d\n", pr+1);
+                Node *atual = round_robins[pr]->head;
+    
+                while (atual != NULL) {
+                    Process *proc = atual->proc;
+                    printf("\t\tProcesso: %d\n", proc->pid);
+                    atual = atual->nxt;
+                }
             }
         }
     }
+
+    printf("\n>shell_sched: "); fflush(stdout);
 
     // frees necessarios
     for(int i = 0; i < n; i++) free_queue(round_robins[i]);
@@ -86,7 +93,7 @@ void info_sched() {
     for (int pr = 0; pr < n; ++pr) {
         if (!is_empty(round_robins[pr])) {
             printf("Fila de prioridade %d\n", pr+1);
-            Node *atual = round_robins[pr]->front;
+            Node *atual = round_robins[pr]->head;
 
             while (atual != NULL) {
                 Process *proc = atual->proc;
@@ -95,6 +102,8 @@ void info_sched() {
             }
         }
     }
+
+    printf(">shell_sched: "); fflush(stdout);
 }
 
 // execute_process
@@ -106,7 +115,7 @@ void add_proc() {
     if(pid_new_process == 0) {
         kill(getpid(), SIGSTOP);     // espera receber SIGCONT
 
-        execl("source/proc_exec", "proc_exec", (char *) 0);
+        execl("bin/proc_exec.out", "proc_exec.out", (char *) 0);
 
         fprintf(stderr, "Erro: falha ao executar o comando 'execl'.\n");
     } else {

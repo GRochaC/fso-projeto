@@ -6,10 +6,10 @@ Nomes:
   Hiago Sousa Rocha -- 221002049
 
 Compilador: gcc 13.3.0
-Compilador de verdade: gcc 15.2.1
 
-Sistema operacional: LINUX 6.14.0-33-generic
-Sistema operacional de verdade: 6.17.8-arch1-1
+Sistema operacional: Ubuntu 24.04.3 LTS 
+Kernel: linux 6.14.0-33-generic
+
 LOONA - [+ +]
 https://youtu.be/yymyRBvD79A
 */
@@ -52,12 +52,17 @@ int pid_sched;  // pid do processo responsável pelo escalonador
 int n_filas;    // numero de filas round-robin
 int msg_id;     // id da fila de mensagens
 
+bool sched_running = false;
+
 void exit_prog() {
   // frees necessarios 
   printf("Fechando interface...\n");
 
   msgctl(msg_id, IPC_RMID, NULL); // free na fila de mensagens
   kill(pid_sched, SIGINT); // mata o sched
+
+  sched_running = false;
+
 }
 
 int main(){
@@ -93,6 +98,9 @@ int main(){
     // exit scheduler
     if(strcmp(command, exit_s) == 0) {
       kill(pid_sched, SIGINT);
+
+      sched_running = false;
+
       continue;
     };
 
@@ -111,18 +119,30 @@ int main(){
 
       // Inicializa scheduler
       if (strcmp(token, user_s) == 0) {
+
+        if(sched_running) {
+          fprintf(stderr, "Erro: escalonador já existente.\n");
+          continue;
+        }
+
         char* n = strtok(NULL, " ");  // numero de filas
+        
+        if(atoi(n) < 1) {
+          fprintf(stderr, "Erro: número de filas inválido.\n");
+          continue;
+        }
+
         n_filas = atoi(n);            // casting pra int
 
         // salva o pid do sched
-        pid_sched = fork();
+        pid_sched = fork(); 
         if (pid_sched == 0) {
           // Casting para char* das ids
           char arg_msg[20];
           sprintf(arg_msg, "%d", msg_id);
 
           // chama o executavel do "sched.c"
-          execl("source/sched", "sched", n, arg_msg, NULL);
+          execl("bin/sched.out", "sched.out", n, arg_msg, NULL);
 
           // Entra aqui apenas se o comando acima não funcionou
           fprintf(stderr, "Erro: falha ao executar o comando 'execl'.\n");
@@ -131,12 +151,26 @@ int main(){
           kill(getpid(), SIGUSR1);   // rotina de saida
           exit(EXIT_FAILURE);
         }
+
+        sched_running = true;
+
         continue;
       }
 
       // Inicializa um novo processo no escalonador
       if(strcmp(token, exec_s) == 0) {
         char* pr = strtok(NULL, " "); // prioridade
+        
+        if(!sched_running) {
+          fprintf(stderr, "Erro: escalonador não inicializado.\n");
+          continue;
+        }
+
+        if(atoi(pr) > n_filas || atoi(pr) < 1) {
+          fprintf(stderr, "Erro: prioridade inválida.\n");
+          continue;
+        }
+
 
         kill(pid_sched, SIGUSR2);   // avisa o sched q ha um novo processo
         strcpy(mensagem_main.msg, pr);  // copia a prioridade pro buffer de mensagem

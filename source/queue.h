@@ -13,8 +13,8 @@ typedef struct Node {
 
 typedef struct Queue {
     int size;
-    Node *front;
-    Node *back;
+    Node *head;
+    Node *tail;
 } Queue;
 
 Queue* new_queue() {
@@ -23,7 +23,7 @@ Queue* new_queue() {
     if (q == NULL) return NULL;
 
     q->size = 0;
-    q->front = q->back = NULL;
+    q->head = q->tail = NULL;
 
     return q;
 }
@@ -36,10 +36,10 @@ int push(Queue *q, Process* process) {
     no->proc = process;
     no->nxt = NULL;
 
-    if (q->size == 0) q->front = q->back = no;
+    if (q->size == 0) q->head = q->tail = no;
     else {
-        q->back->nxt = no;
-        q->back = no;
+        q->tail->nxt = no;
+        q->tail = no;
     }
 
     q->size++;
@@ -51,8 +51,8 @@ int push(Queue *q, Process* process) {
 Process* pop(Queue *q) {
     if (q->size == 0) return NULL;
 
-    Node* no = q->front;
-    q->front = q->front->nxt;
+    Node* no = q->head;
+    q->head = q->head->nxt;
     q->size--;
 
     Process* proc = no->proc;
@@ -64,7 +64,7 @@ Process* pop(Queue *q) {
 void free_queue(Queue *q) {
     if(q == NULL) return;
 
-    Node *node = q->front;
+    Node *node = q->head;
     while (node != NULL) {
         Node* nxt = node->nxt;
         Process* p = pop(q);

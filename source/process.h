@@ -14,7 +14,6 @@ typedef struct Process {
 
 Process* new_process(int pid, int priority) {
     Process* p = (Process*) malloc(sizeof(Process));
-
     if(p == NULL) return NULL;
 
     p->pid = pid;
