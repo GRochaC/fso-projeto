@@ -65,6 +65,13 @@ void exit_prog() {
 
 }
 
+/*
+COMPILAÇÃO: gcc -o bin/sched.out  source/sched.c | gcc -o shell_sched source/main.c | gcc -o bin/proc_exec.out source/proc_exec.c 
+
+EXECUÇÃO: ./shell_sched
+
+*/
+
 int main(){
   signal(SIGSEGV, exit_prog);  // define de tratamento para segfault
   signal(SIGUSR1, exit_prog);  // define o tratamento de erros gerais (?)
@@ -160,7 +167,7 @@ int main(){
       // Inicializa um novo processo no escalonador
       if(strcmp(token, exec_s) == 0) {
         char* pr = strtok(NULL, " "); // prioridade
-        
+
         if(!sched_running) {
           fprintf(stderr, "Erro: escalonador não inicializado.\n");
           continue;
