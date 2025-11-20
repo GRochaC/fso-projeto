@@ -104,6 +104,10 @@ int main() {
 
     // exit scheduler
     if (strcmp(command, exit_s) == 0) {
+      if (!sched_running) {
+        fprintf(stderr, "Erro: escalonador não inicializado.\n");
+        continue;
+      }
       kill(pid_sched, SIGINT);
       sched_running = false;
       continue;
@@ -111,6 +115,10 @@ int main() {
 
     // list scheduler
     if (strcmp(command, list_s) == 0) {
+      if (!sched_running) {
+        fprintf(stderr, "Erro: escalonador não inicializado.\n");
+        continue;
+      }
       kill(pid_sched, SIGUSR1); // pede as informacoes para o sched
       continue;
     }
@@ -137,6 +145,13 @@ int main() {
         }
 
         char *n = strtok(NULL, " "); // numero de filas
+
+        // Número de filas não passado no comando
+        if (n == NULL) {
+          fprintf(stderr, "Erro: número de filas inválido.\n");
+          continue;
+        }
+
         n_filas = atoi(n); // casting pra int
 
         if (n_filas < 1) {
@@ -169,6 +184,12 @@ int main() {
       // Comando para inicializar um novo processo no escalonador
       if (strcmp(token, exec_s) == 0) {
         char *pr = strtok(NULL, " "); // prioridade do processo
+
+        // Prioridade não passada
+        if (pr == NULL) {
+          fprintf(stderr, "Erro: prioridade inválida.\n");
+          continue;
+        }
 
         if (!sched_running) {
           fprintf(stderr, "Erro: escalonador não inicializado.\n");

@@ -5,13 +5,15 @@
 #include "sys/wait.h"
 #include "unistd.h"
 
+// Structs que organizam as informações dos processos
+// e filas round-robin
 #include "process.h"
 #include "queue.h"
 
 // Header de funções auxiliares:
 #include "aux.h"
 
-// Bibliotecas de mecanismos de comunicacao
+// Bibliotecas de mecanismos de comunicação
 #include "sys/ipc.h"
 #include "sys/types.h"
 
@@ -28,8 +30,8 @@ bool voltar_para_o_inicio = false;
 
 int n; // numero de filas round-robins
 
-Queue **round_robins = NULL;
-Queue *finished_processes = NULL;
+Queue **round_robins;
+Queue *finished_processes;
 
 // declaracao da struct mensagem
 mensagem mensagem_sched;
@@ -47,13 +49,13 @@ void exit_sched() {
   // Passa pela lista de processos finalizados:
   if (!is_empty(finished_processes)) {
     printou_algo = true;
-    printf("\nProcessos finalizados:\n");
-    Node *atual = finished_processes->head;
 
+    printf("\nProcessos finalizados:\n");
+
+    Node *atual = finished_processes->head;
     while (atual != NULL) {
       Process *proc = atual->proc;
-      printf("\tProcesso: %d, prioridade: %d, turnaround: %lds\n", proc->pid,
-             proc->priority, proc->turnaround);
+      printf("\tProcesso: %d, prioridade: %d, turnaround: %lds\n", proc->pid, proc->priority, proc->turnaround);
       atual = atual->nxt;
     }
   }
@@ -61,7 +63,7 @@ void exit_sched() {
   // Processo atual:
   if (processo_atual->pid != 2147483647) { // PID impossível na prática, isto verifica se há um processo atual sendo executado
     printou_algo = true;
-    printf("Processo atual: %d, prioridade: %d\n", processo_atual->pid, processo_atual->priority);
+    printf("Processo sendo executado: %d, prioridade: %d\n", processo_atual->pid, processo_atual->priority);
   }
 
   bool all_vazio = true; // Verifica se todas as filas estão ou não vazias
@@ -85,6 +87,7 @@ void exit_sched() {
     }
   }
 
+  // Feito por questão de apresentação
   if (printou_algo) {
     printf("\n>shell_sched: ");
     fflush(stdout);
@@ -92,25 +95,33 @@ void exit_sched() {
 
   // Frees necessarios
   for (int i = 0; i < n; i++)
-    free_queue(round_robins[i]);
-  free_queue(finished_processes);
-  free(round_robins);
-  free(processo_atual);
-  free(processo_default);
+    free_queue(round_robins[i]); // Cada processo no escalonador
+  free_queue(finished_processes); // Cada processo já finalizado
+  free(round_robins); // Array que guardava as filas
+  if (processo_atual == processo_default)
+    free(processo_atual);
+  else {
+    free(processo_atual);
+    free(processo_default);
+  }
 
   exit(EXIT_SUCCESS);
 }
 
 // list_scheduler
 void info_sched() {
+  bool printou_algo = false; // Usado apenas por questão de apresentação
+
   // Processo atual:
-  if (processo_atual->pid != 2147483647)
-    printf("\nProcesso atual: %d, prioridade: %d\n", processo_atual->pid,
-           processo_atual->priority);
+  if (processo_atual->pid != 2147483647) {
+    printou_algo = true;
+    printf("\nProcesso sendo executado: %d, prioridade: %d\n", processo_atual->pid, processo_atual->priority);
+  }
 
   // Processos nas filas:
   for (int pr = 0; pr < n; ++pr) {
     if (!is_empty(round_robins[pr])) {
+      printou_algo = true;
       printf("Fila de prioridade %d\n", pr + 1);
       Node *atual = round_robins[pr]->head;
 
@@ -122,15 +133,17 @@ void info_sched() {
     }
   }
 
-  printf(">shell_sched: ");
-  fflush(stdout);
+  // Feito por questão de apresentação
+  if (printou_algo) {
+    printf(">shell_sched: ");
+    fflush(stdout);
+  }
 }
 
 // execute_process
 void add_proc() {
   strcpy(mensagem_sched.msg, ""); // limpa o buffer de mensagem
-  msgrcv(msg_id, &mensagem_sched, sizeof(mensagem_sched.msg), 0,
-         0); // recebe a prioridade da main
+  msgrcv(msg_id, &mensagem_sched, sizeof(mensagem_sched.msg), 0, 0); // recebe a prioridade da main
 
   int pid_new_process = fork();
   if (pid_new_process == 0) {
@@ -152,8 +165,7 @@ int main(int argc, char *argv[]) {
   n = atoi(argv[1]);      // número de filas round-robins
   msg_id = atoi(argv[2]); // id da fila de mensagem
 
-  round_robins =
-      (Queue **)malloc(sizeof(Queue *) * n); // cria os arrays de filas rr
+  round_robins = (Queue **)malloc(sizeof(Queue *) * n); // cria os arrays de filas rr
   processo_default = new_process(2147483647, -1);
   processo_atual = processo_default;
 
